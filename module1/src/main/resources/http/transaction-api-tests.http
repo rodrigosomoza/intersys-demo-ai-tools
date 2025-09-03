@@ -1,0 +1,324 @@
+### Transaction Service API Tests
+
+# Make sure both services are running:
+# 1. Start Module 2 (User Service) on port 8081: cd module2 && mvn spring-boot:run
+# 2. Start Module 1 (Transaction Service) on port 8080: cd module1 && mvn spring-boot:run
+
+### 1. Successful Transaction (200 OK) - User 1 sends $500 to User 2
+POST http://localhost:8080/api/transactions
+Content-Type: application/json
+
+{
+  "senderId": 1,
+  "receiverId": 2,
+  "amount": 500.00
+}
+
+> {%
+client.test("Should return 200 OK for successful transaction", function() {
+    client.assert(response.status === 200, "Response status is not 200");
+});
+
+client.test("Should return transaction details", function() {
+    client.assert(response.body.status === "SUCCESS", "Transaction status is not SUCCESS");
+    client.assert(response.body.transactionId !== null, "Transaction ID is missing");
+    client.assert(response.body.senderBalanceAfter !== null, "Sender balance after is missing");
+    client.assert(response.body.receiverBalanceAfter !== null, "Receiver balance after is missing");
+});
+
+client.test("Should have correct balance calculations", function() {
+    client.assert(response.body.senderBalanceAfter === 4500.00, "Sender balance incorrect");
+    client.assert(response.body.receiverBalanceAfter === 3500.00, "Receiver balance incorrect");
+});
+%}
+
+###
+
+### 2. Small Amount Transaction (200 OK) - User 3 sends $0.01 to User 4
+POST http://localhost:8080/api/transactions
+Content-Type: application/json
+
+{
+  "senderId": 3,
+  "receiverId": 4,
+  "amount": 0.01
+}
+
+> {%
+client.test("Should return 200 OK for small amount", function() {
+    client.assert(response.status === 200, "Response status is not 200");
+    client.assert(response.body.status === "SUCCESS", "Transaction status is not SUCCESS");
+});
+%}
+
+###
+
+### 3. Insufficient Funds (400 Bad Request) - User 5 tries to send $5000 (only has $2000)
+POST http://localhost:8080/api/transactions
+Content-Type: application/json
+
+{
+  "senderId": 5,
+  "receiverId": 1,
+  "amount": 5000.00
+}
+
+> {%
+client.test("Should return 400 for insufficient funds", function() {
+    client.assert(response.status === 400, "Response status is not 400");
+});
+
+client.test("Should return insufficient funds error", function() {
+    client.assert(response.body.status === "INSUFFICIENT_FUNDS", "Error status is not INSUFFICIENT_FUNDS");
+    client.assert(response.body.error.includes("Insufficient funds"), "Error message doesn't mention insufficient funds");
+});
+%}
+
+###
+
+### 4. Non-existent Sender (400 Bad Request) - User 999 doesn't exist
+POST http://localhost:8080/api/transactions
+Content-Type: application/json
+
+{
+  "senderId": 999,
+  "receiverId": 1,
+  "amount": 100.00
+}
+
+> {%
+client.test("Should return 400 for non-existent sender", function() {
+    client.assert(response.status === 400, "Response status is not 400");
+});
+
+client.test("Should return user not found error", function() {
+    client.assert(response.body.status === "FAILED", "Error status is not FAILED");
+    client.assert(response.body.error.includes("User not found"), "Error message doesn't mention user not found");
+});
+%}
+
+###
+
+### 5. Non-existent Receiver (400 Bad Request) - User 888 doesn't exist
+POST http://localhost:8080/api/transactions
+Content-Type: application/json
+
+{
+  "senderId": 1,
+  "receiverId": 888,
+  "amount": 100.00
+}
+
+> {%
+client.test("Should return 400 for non-existent receiver", function() {
+    client.assert(response.status === 400, "Response status is not 400");
+});
+
+client.test("Should return user not found error", function() {
+    client.assert(response.body.status === "FAILED", "Error status is not FAILED");
+    client.assert(response.body.error.includes("User not found"), "Error message doesn't mention user not found");
+});
+%}
+
+###
+
+### 6. Same User Transaction (400 Bad Request) - User tries to send to themselves
+POST http://localhost:8080/api/transactions
+Content-Type: application/json
+
+{
+  "senderId": 1,
+  "receiverId": 1,
+  "amount": 100.00
+}
+
+> {%
+client.test("Should return 400 for same user transaction", function() {
+    client.assert(response.status === 400, "Response status is not 400");
+});
+
+client.test("Should return same account error", function() {
+    client.assert(response.body.status === "FAILED", "Error status is not FAILED");
+    client.assert(response.body.error.includes("Cannot transfer to the same account"), "Error message doesn't mention same account");
+});
+%}
+
+###
+
+### 7. Zero Amount Transaction (400 Bad Request) - Amount is zero
+POST http://localhost:8080/api/transactions
+Content-Type: application/json
+
+{
+  "senderId": 1,
+  "receiverId": 2,
+  "amount": 0
+}
+
+> {%
+client.test("Should return 400 for zero amount", function() {
+    client.assert(response.status === 400, "Response status is not 400");
+});
+
+client.test("Should return amount validation error", function() {
+    client.assert(response.body.status === "FAILED", "Error status is not FAILED");
+    client.assert(response.body.error.includes("Amount must be greater than zero"), "Error message doesn't mention amount validation");
+});
+%}
+
+###
+
+### 8. Negative Amount Transaction (400 Bad Request) - Amount is negative
+POST http://localhost:8080/api/transactions
+Content-Type: application/json
+
+{
+  "senderId": 1,
+  "receiverId": 2,
+  "amount": -100.00
+}
+
+> {%
+client.test("Should return 400 for negative amount", function() {
+    client.assert(response.status === 400, "Response status is not 400");
+});
+%}
+
+###
+
+### 9. Missing Sender ID (400 Bad Request) - Validation error
+POST http://localhost:8080/api/transactions
+Content-Type: application/json
+
+{
+  "receiverId": 2,
+  "amount": 100.00
+}
+
+> {%
+client.test("Should return 400 for missing sender ID", function() {
+    client.assert(response.status === 400, "Response status is not 400");
+});
+%}
+
+###
+
+### 10. Missing Receiver ID (400 Bad Request) - Validation error
+POST http://localhost:8080/api/transactions
+Content-Type: application/json
+
+{
+  "senderId": 1,
+  "amount": 100.00
+}
+
+> {%
+client.test("Should return 400 for missing receiver ID", function() {
+    client.assert(response.status === 400, "Response status is not 400");
+});
+%}
+
+###
+
+### 11. Missing Amount (400 Bad Request) - Validation error
+POST http://localhost:8080/api/transactions
+Content-Type: application/json
+
+{
+  "senderId": 1,
+  "receiverId": 2
+}
+
+> {%
+client.test("Should return 400 for missing amount", function() {
+    client.assert(response.status === 400, "Response status is not 400");
+});
+%}
+
+###
+
+### 12. Large Amount Transaction (200 OK) - User 3 sends $9000 to User 4 (has $10000)
+POST http://localhost:8080/api/transactions
+Content-Type: application/json
+
+{
+  "senderId": 3,
+  "receiverId": 4,
+  "amount": 9000.00
+}
+
+> {%
+client.test("Should return 200 OK for large amount transaction", function() {
+    client.assert(response.status === 200, "Response status is not 200");
+    client.assert(response.body.status === "SUCCESS", "Transaction status is not SUCCESS");
+});
+
+client.test("Should handle large amounts correctly", function() {
+    client.assert(response.body.senderBalanceAfter === 1000.00, "Large transaction sender balance incorrect");
+});
+%}
+
+###
+
+### 13. Exact Balance Transaction (200 OK) - User 5 sends all remaining balance
+POST http://localhost:8080/api/transactions
+Content-Type: application/json
+
+{
+  "senderId": 5,
+  "receiverId": 1,
+  "amount": 2000.00
+}
+
+> {%
+client.test("Should return 200 OK for exact balance transaction", function() {
+    client.assert(response.status === 200, "Response status is not 200");
+    client.assert(response.body.status === "SUCCESS", "Transaction status is not SUCCESS");
+});
+
+client.test("Should leave sender with zero balance", function() {
+    client.assert(response.body.senderBalanceAfter === 0.00, "Sender should have zero balance after exact balance transaction");
+});
+%}
+
+###
+
+### 14. Invalid JSON Format (400 Bad Request)
+POST http://localhost:8080/api/transactions
+Content-Type: application/json
+
+{
+  "senderId": "invalid",
+  "receiverId": 2,
+  "amount": "not-a-number"
+}
+
+> {%
+client.test("Should return 400 for invalid JSON format", function() {
+    client.assert(response.status === 400, "Response status is not 400");
+});
+%}
+
+###
+
+### 15. Health Check - Verify Transaction Service is Running
+GET http://localhost:8080/actuator/health
+
+> {%
+client.test("Transaction service should be healthy", function() {
+    client.assert(response.status === 200 || response.status === 404, "Service is not responding");
+});
+%}
+
+###
+
+### 16. API Documentation Access - Swagger UI should be available
+GET http://localhost:8080/swagger-ui.html
+
+> {%
+client.test("Swagger UI should be accessible", function() {
+    client.assert(response.status === 200, "Swagger UI is not accessible");
+});
+%}
+
+###

@@ -1,0 +1,293 @@
+### User Service API Tests
+
+# Make sure User Service is running on port 8081: cd module2 && mvn spring-boot:run
+
+### 1. Get User Information - Valid Request (200 OK)
+POST http://localhost:8081/api/users/info
+Content-Type: application/json
+
+{
+  "transactionId": "TXN-TEST-001",
+  "userIds": [1, 2, 3]
+}
+
+> {%
+client.test("Should return 200 OK for valid user info request", function() {
+    client.assert(response.status === 200, "Response status is not 200");
+});
+
+client.test("Should return correct transaction ID", function() {
+    client.assert(response.body.transactionId === "TXN-TEST-001", "Transaction ID doesn't match");
+});
+
+client.test("Should return user information", function() {
+    client.assert(response.body.users.length === 3, "Should return 3 users");
+    client.assert(response.body.users[0].id === 1, "First user ID should be 1");
+    client.assert(response.body.users[0].name === "John Doe", "First user name should be John Doe");
+    client.assert(response.body.users[0].balance === 5000.00, "First user balance should be 5000.00");
+});
+%}
+
+###
+
+### 2. Get Single User Information (200 OK)
+POST http://localhost:8081/api/users/info
+Content-Type: application/json
+
+{
+  "transactionId": "TXN-SINGLE-USER",
+  "userIds": [4]
+}
+
+> {%
+client.test("Should return 200 OK for single user", function() {
+    client.assert(response.status === 200, "Response status is not 200");
+});
+
+client.test("Should return single user information", function() {
+    client.assert(response.body.users.length === 1, "Should return 1 user");
+    client.assert(response.body.users[0].id === 4, "User ID should be 4");
+    client.assert(response.body.users[0].name === "Alice Williams", "User name should be Alice Williams");
+});
+%}
+
+###
+
+### 3. Get All Users Information (200 OK)
+POST http://localhost:8081/api/users/info
+Content-Type: application/json
+
+{
+  "transactionId": "TXN-ALL-USERS",
+  "userIds": [1, 2, 3, 4, 5]
+}
+
+> {%
+client.test("Should return 200 OK for all users", function() {
+    client.assert(response.status === 200, "Response status is not 200");
+});
+
+client.test("Should return all user information", function() {
+    client.assert(response.body.users.length === 5, "Should return 5 users");
+});
+%}
+
+###
+
+### 4. Non-existent User (404 Not Found)
+POST http://localhost:8081/api/users/info
+Content-Type: application/json
+
+{
+  "transactionId": "TXN-NONEXISTENT",
+  "userIds": [999]
+}
+
+> {%
+client.test("Should return 404 for non-existent user", function() {
+    client.assert(response.status === 404, "Response status is not 404");
+});
+
+client.test("Should return user not found error", function() {
+    client.assert(response.body.error.includes("User not found with ID: 999"), "Error message should mention user not found");
+});
+%}
+
+###
+
+### 5. Mixed Valid and Invalid Users (404 Not Found) - Should fail on first invalid
+POST http://localhost:8081/api/users/info
+Content-Type: application/json
+
+{
+  "transactionId": "TXN-MIXED",
+  "userIds": [1, 999, 2]
+}
+
+> {%
+client.test("Should return 404 for mixed valid/invalid users", function() {
+    client.assert(response.status === 404, "Response status is not 404");
+});
+%}
+
+###
+
+### 6. Empty User IDs List (200 OK) - Should return empty list
+POST http://localhost:8081/api/users/info
+Content-Type: application/json
+
+{
+  "transactionId": "TXN-EMPTY",
+  "userIds": []
+}
+
+> {%
+client.test("Should return 400 for empty user IDs list", function() {
+    client.assert(response.status === 400, "Response status is not 400");
+});
+%}
+
+###
+
+### 7. Missing Transaction ID (400 Bad Request)
+POST http://localhost:8081/api/users/info
+Content-Type: application/json
+
+{
+  "userIds": [1, 2]
+}
+
+> {%
+client.test("Should return 400 for missing transaction ID", function() {
+    client.assert(response.status === 400, "Response status is not 400");
+});
+%}
+
+###
+
+### 8. Missing User IDs (400 Bad Request)
+POST http://localhost:8081/api/users/info
+Content-Type: application/json
+
+{
+  "transactionId": "TXN-NO-USERS"
+}
+
+> {%
+client.test("Should return 400 for missing user IDs", function() {
+    client.assert(response.status === 400, "Response status is not 400");
+});
+%}
+
+###
+
+### 9. Null Transaction ID (400 Bad Request)
+POST http://localhost:8081/api/users/info
+Content-Type: application/json
+
+{
+  "transactionId": null,
+  "userIds": [1, 2]
+}
+
+> {%
+client.test("Should return 400 for null transaction ID", function() {
+    client.assert(response.status === 400, "Response status is not 400");
+});
+%}
+
+###
+
+### 10. Update User Balance - User 1 (200 OK)
+PUT http://localhost:8081/api/users/1/balance
+Content-Type: application/json
+
+{
+  "balance": 6000.00
+}
+
+> {%
+client.test("Should return 200 OK for balance update", function() {
+    client.assert(response.status === 200, "Response status is not 200");
+});
+%}
+
+###
+
+### 11. Update Non-existent User Balance (404 Not Found)
+PUT http://localhost:8081/api/users/999/balance
+Content-Type: application/json
+
+{
+  "balance": 1000.00
+}
+
+> {%
+client.test("Should return 404 for non-existent user balance update", function() {
+    client.assert(response.status === 404, "Response status is not 404");
+});
+
+client.test("Should return user not found error", function() {
+    client.assert(response.body.error.includes("User not found with ID: 999"), "Error message should mention user not found");
+});
+%}
+
+###
+
+### 12. Verify Balance Update - Check if User 1 balance was updated
+POST http://localhost:8081/api/users/info
+Content-Type: application/json
+
+{
+  "transactionId": "TXN-VERIFY-UPDATE",
+  "userIds": [1]
+}
+
+> {%
+client.test("Should return updated balance", function() {
+    client.assert(response.status === 200, "Response status is not 200");
+    client.assert(response.body.users[0].balance === 6000.00, "User 1 balance should be updated to 6000.00");
+});
+%}
+
+###
+
+### 13. Duplicate User IDs (200 OK) - Should return duplicates
+POST http://localhost:8081/api/users/info
+Content-Type: application/json
+
+{
+  "transactionId": "TXN-DUPLICATES",
+  "userIds": [1, 1, 2, 2]
+}
+
+> {%
+client.test("Should return 200 OK for duplicate user IDs", function() {
+    client.assert(response.status === 200, "Response status is not 200");
+});
+
+client.test("Should return 4 user entries (including duplicates)", function() {
+    client.assert(response.body.users.length === 4, "Should return 4 user entries");
+});
+%}
+
+###
+
+### 14. Invalid JSON Format (400 Bad Request)
+POST http://localhost:8081/api/users/info
+Content-Type: application/json
+
+{
+  "transactionId": "TXN-INVALID",
+  "userIds": ["invalid", "ids"]
+}
+
+> {%
+client.test("Should return 400 for invalid JSON format", function() {
+    client.assert(response.status === 400, "Response status is not 400");
+});
+%}
+
+###
+
+### 15. Health Check - Verify User Service is Running
+GET http://localhost:8081/actuator/health
+
+> {%
+client.test("User service should be healthy", function() {
+    client.assert(response.status === 200 || response.status === 404, "Service is not responding");
+});
+%}
+
+###
+
+### 16. API Documentation Access - Swagger UI should be available
+GET http://localhost:8081/swagger-ui.html
+
+> {%
+client.test("Swagger UI should be accessible", function() {
+    client.assert(response.status === 200, "Swagger UI is not accessible");
+});
+%}
+
+###

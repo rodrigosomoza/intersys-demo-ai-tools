@@ -1,0 +1,38 @@
+### Transaction Service API Tests
+### Base URL for local development
+@baseUrl = http://localhost:8080
+
+### Test 1: Successful Transaction - Valid Request (Should return 200)
+POST {{baseUrl}}/transactions
+Content-Type: application/json
+
+{
+  "senderUserId": "user001",
+  "receiverUserId": "user002",
+  "amount": 100.50
+}
+
+> {%
+client.test("Successful transaction", function() {
+    client.assert(response.status === 200, "Expected status 200");
+    client.assert(response.contentType.mimeType === "application/json", "Expected JSON response");
+    client.assert(response.body.hasOwnProperty("transactionId"), "Response should contain transactionId");
+    client.assert(response.body.hasOwnProperty("status"), "Response should contain status");
+    client.assert(response.body.status === "SUCCESS" || response.body.status === "FAILED", "Status should be SUCCESS or FAILED");
+});
+%}
+
+###
+
+### Test 2: Get Transaction History - Valid User (Should return 200)
+GET {{baseUrl}}/transactions/history/user001
+
+> {%
+client.test("Get transaction history", function() {
+    client.assert(response.status === 200, "Expected status 200");
+    client.assert(response.contentType.mimeType === "application/json", "Expected JSON response");
+    client.assert(Array.isArray(response.body), "Response should be an array");
+});
+%}
+
+###

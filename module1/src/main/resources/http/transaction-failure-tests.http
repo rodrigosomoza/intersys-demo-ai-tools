@@ -1,0 +1,168 @@
+### Transaction Service API - Business Logic Failures and Edge Cases
+### Base URL for local development
+@baseUrl = http://localhost:8080
+
+### Test 1: Insufficient Balance - Should return 200 with FAILED status
+POST {{baseUrl}}/transactions
+Content-Type: application/json
+
+{
+  "senderUserId": "user_poor",
+  "receiverUserId": "user002",
+  "amount": 999999.99
+}
+
+> {%
+client.test("Insufficient balance transaction", function() {
+    client.assert(response.status === 200, "Expected status 200 even for insufficient balance");
+    client.assert(response.contentType.mimeType === "application/json", "Expected JSON response");
+    client.assert(response.body.hasOwnProperty("status"), "Response should contain status");
+    client.assert(response.body.status === "FAILED", "Status should be FAILED for insufficient balance");
+    client.assert(response.body.hasOwnProperty("transactionId"), "Response should contain transactionId");
+});
+%}
+
+###
+
+### Test 2: Non-existent Sender User - Should trigger exception (500)
+POST {{baseUrl}}/transactions
+Content-Type: application/json
+
+{
+  "senderUserId": "nonexistent_user_12345",
+  "receiverUserId": "user002",
+  "amount": 50.00
+}
+
+> {%
+client.test("Non-existent sender user", function() {
+    client.assert(response.status === 500, "Expected status 500 for non-existent user");
+    client.assert(response.contentType.mimeType === "application/json", "Expected JSON response");
+});
+%}
+
+###
+
+### Test 3: Non-existent Receiver User - Should trigger exception (500)
+POST {{baseUrl}}/transactions
+Content-Type: application/json
+
+{
+  "senderUserId": "user001",
+  "receiverUserId": "nonexistent_receiver_12345",
+  "amount": 50.00
+}
+
+> {%
+client.test("Non-existent receiver user", function() {
+    client.assert(response.status === 500, "Expected status 500 for non-existent receiver");
+});
+%}
+
+###
+
+### Test 4: Self-Transfer - Same sender and receiver
+POST {{baseUrl}}/transactions
+Content-Type: application/json
+
+{
+  "senderUserId": "user001",
+  "receiverUserId": "user001",
+  "amount": 50.00
+}
+
+> {%
+client.test("Self-transfer attempt", function() {
+    // This should either be validated or handled gracefully
+    client.assert(response.status === 400 || response.status === 200, "Expected status 400 or 200 for self-transfer");
+    if (response.status === 200) {
+        client.assert(response.body.status === "FAILED", "Self-transfer should fail");
+    }
+});
+%}
+
+###
+
+### Test 5: Very Large Amount - Potential overflow
+POST {{baseUrl}}/transactions
+Content-Type: application/json
+
+{
+  "senderUserId": "user001",
+  "receiverUserId": "user002",
+  "amount": 999999999999999.99
+}
+
+> {%
+client.test("Very large amount transaction", function() {
+    client.assert(response.status === 200 || response.status === 400, "Expected status 200 or 400 for large amount");
+    if (response.status === 200) {
+        client.assert(response.body.status === "FAILED", "Large amount should likely fail");
+    }
+});
+%}
+
+###
+
+### Test 6: Extremely Small Positive Amount
+POST {{baseUrl}}/transactions
+Content-Type: application/json
+
+{
+  "senderUserId": "user001",
+  "receiverUserId": "user002",
+  "amount": 0.01
+}
+
+> {%
+client.test("Very small amount transaction", function() {
+    client.assert(response.status === 200, "Expected status 200 for small valid amount");
+    client.assert(response.body.hasOwnProperty("status"), "Response should contain status");
+});
+%}
+
+###
+
+### Test 7: User Service Down - Simulate external service failure
+### Note: This test assumes Module 2 (User Service) is not running
+POST {{baseUrl}}/transactions
+Content-Type: application/json
+
+{
+  "senderUserId": "user001",
+  "receiverUserId": "user002",
+  "amount": 100.00
+}
+
+> {%
+client.test("User service unavailable", function() {
+    // This should trigger a 500 error when Module 2 is down
+    client.assert(response.status === 500, "Expected status 500 when user service is unavailable");
+});
+%}
+
+###
+
+### Test 8: Get Transaction History for Non-existent User
+GET {{baseUrl}}/transactions/history/nonexistent_user_12345
+
+> {%
+client.test("Transaction history for non-existent user", function() {
+    client.assert(response.status === 200, "Expected status 200 even for non-existent user");
+    client.assert(Array.isArray(response.body), "Response should be an empty array");
+    client.assert(response.body.length === 0, "Array should be empty for non-existent user");
+});
+%}
+
+###
+
+### Test 9: Get Transaction History with Invalid User ID Format
+GET {{baseUrl}}/transactions/history/
+
+> {%
+client.test("Transaction history with empty user ID", function() {
+    client.assert(response.status === 404, "Expected status 404 for missing path variable");
+});
+%}
+
+###

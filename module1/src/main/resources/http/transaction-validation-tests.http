@@ -1,0 +1,141 @@
+### Transaction Service API - Validation and Error Tests
+### Base URL for local development
+@baseUrl = http://localhost:8080
+
+### Test 1: Validation Error - Missing senderUserId (Should return 400)
+POST {{baseUrl}}/transactions
+Content-Type: application/json
+
+{
+  "receiverUserId": "user002",
+  "amount": 100.50
+}
+
+> {%
+client.test("Missing senderUserId validation", function() {
+    client.assert(response.status === 400, "Expected status 400 for validation error");
+    client.assert(response.contentType.mimeType === "application/json", "Expected JSON response");
+});
+%}
+
+###
+
+### Test 2: Validation Error - Empty senderUserId (Should return 400)
+POST {{baseUrl}}/transactions
+Content-Type: application/json
+
+{
+  "senderUserId": "",
+  "receiverUserId": "user002",
+  "amount": 100.50
+}
+
+> {%
+client.test("Empty senderUserId validation", function() {
+    client.assert(response.status === 400, "Expected status 400 for validation error");
+});
+%}
+
+###
+
+### Test 3: Validation Error - Missing receiverUserId (Should return 400)
+POST {{baseUrl}}/transactions
+Content-Type: application/json
+
+{
+  "senderUserId": "user001",
+  "amount": 100.50
+}
+
+> {%
+client.test("Missing receiverUserId validation", function() {
+    client.assert(response.status === 400, "Expected status 400 for validation error");
+});
+%}
+
+###
+
+### Test 4: Validation Error - Negative amount (Should return 400)
+POST {{baseUrl}}/transactions
+Content-Type: application/json
+
+{
+  "senderUserId": "user001",
+  "receiverUserId": "user002",
+  "amount": -50.00
+}
+
+> {%
+client.test("Negative amount validation", function() {
+    client.assert(response.status === 400, "Expected status 400 for negative amount");
+});
+%}
+
+###
+
+### Test 5: Validation Error - Zero amount (Should return 400)
+POST {{baseUrl}}/transactions
+Content-Type: application/json
+
+{
+  "senderUserId": "user001",
+  "receiverUserId": "user002",
+  "amount": 0
+}
+
+> {%
+client.test("Zero amount validation", function() {
+    client.assert(response.status === 400, "Expected status 400 for zero amount");
+});
+%}
+
+###
+
+### Test 6: Validation Error - Missing amount (Should return 400)
+POST {{baseUrl}}/transactions
+Content-Type: application/json
+
+{
+  "senderUserId": "user001",
+  "receiverUserId": "user002"
+}
+
+> {%
+client.test("Missing amount validation", function() {
+    client.assert(response.status === 400, "Expected status 400 for missing amount");
+});
+%}
+
+###
+
+### Test 7: Invalid Content-Type (Should return 415)
+POST {{baseUrl}}/transactions
+Content-Type: text/plain
+
+user001,user002,100.50
+
+> {%
+client.test("Invalid content type", function() {
+    client.assert(response.status === 415, "Expected status 415 for unsupported media type");
+});
+%}
+
+###
+
+### Test 8: Malformed JSON (Should return 400)
+POST {{baseUrl}}/transactions
+Content-Type: application/json
+
+{
+  "senderUserId": "user001",
+  "receiverUserId": "user002",
+  "amount": 100.50,
+}
+
+> {%
+client.test("Malformed JSON", function() {
+    client.assert(response.status === 400, "Expected status 400 for malformed JSON");
+});
+%}
+
+###
